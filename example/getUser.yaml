@@ -1,6 +1,6 @@
 # getUser.yaml
 name: "getUser"
-description: "Fetch basic information about user by 'login' including their name, url, and location."
+description: "Fetch basic information about a user by `login`, including their name, URL, and location."
 query: |
   query ($login: String!) {
     user(login: $login) {
@@ -13,5 +13,5 @@ query: |
 inputs:
   - name: "login"
     type: "string"
-    description: "The user 'login' that uniquely identifies their account."
+    description: "The user `login` that uniquely identifies their account."
     required: true

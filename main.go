@@ -25,7 +25,7 @@ type ForgeConfig struct {
 	TokenCommand string `yaml:"token_command"`
 }
 
-// ToolConfig holds one tool’s YAML definition
+// ToolConfig holds one tool's YAML definition
 type ToolConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`

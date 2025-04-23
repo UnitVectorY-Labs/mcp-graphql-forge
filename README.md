@@ -8,7 +8,7 @@ A lightweight, configuration-driven MCP server that exposes curated GraphQL quer
 
 ## Configuration
 
-To configure the MCP server you must specify an environment variable `FORGE_CONFIG` that points to the folder that contains the YAML configuration files for configuring the server.
+To configure the MCP server, specify the environment variable `FORGE_CONFIG` pointing to the folder containing the YAML configuration files.
 
 ### forge.yaml
 
@@ -19,7 +19,7 @@ The following attributes can be specified in the file:
 - `name`: The name of the MCP server
 - `version`: The version of the MCP server
 - `url`: The URL of the GraphQL endpoint
-- `token_command`: The command to use to request the Bearer token for the authorization header (optional)
+- `token_command`: The command to use to request the Bearer token for the `Authorization` header (optional)
 
 An example configuration would look like:
 
@@ -40,17 +40,17 @@ The following attributes can be specified in the file:
 - `name`: The name of the MCP tool
 - `description`: The description of the MCP tool
 - `query`: The GraphQL query to execute
-- `inputs`: The list of inputs which are defined by the MCP tool and passed into the GraphQL as attributes
+- `inputs`: The list of inputs defined by the MCP tool and passed into the GraphQL query as variables
   - `name`: The name of the input
   - `type`: The parameter type; can be 'string' or 'number'
   - `description`: The description of the parameter for the MCP tool to use
-  - `required`: Boolean value specifying if the attribute is required.
+  - `required`: Boolean value specifying if the attribute is required
 
 An example configuration would look like:
 
 ```yaml
 name: "getUser"
-description: "Fetch basic information about user by 'login' including their name, url, and location."
+description: "Fetch basic information about a user by `login`, including their name, URL, and location."
 query: |
   query ($login: String!) {
     user(login: $login) {
@@ -63,7 +63,7 @@ query: |
 inputs:
   - name: "login"
     type: "string"
-    description: "The user 'login' that uniquely identifies their account."
+    description: "The user `login` that uniquely identifies their account."
     required: true
 ```
 
@@ -71,4 +71,4 @@ inputs:
 
 - Each instance of `mcp-graphql-forge` can only be used with a single GraphQL server at a single URL.
 - All requests use the same Authorization header in the form of a Bearer token.
-- The GraphQL queries are all exposed as Tools and not as Resources even if they are not mutations.  This is motivated as not all MCP clients at this time more broadly support Tools.
+- The GraphQL queries are all exposed as Tools and not as Resources, even if they are not mutations. This is because not all MCP clients currently support Resources.

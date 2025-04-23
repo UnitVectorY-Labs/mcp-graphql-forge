@@ -6,7 +6,7 @@ This assumes you have the GitHub Command Line Interface (CLI) installed and conf
 
 ## GitHub Tools
 
-This configuration provides a `getUser` tool that retrieves a few basic attributes for the request user by calling the GraphQL API.
+This configuration provides a `getUser` tool that retrieves a few basic attributes for the requested user by calling the GraphQL API.
 
 ## Visual Studio Code Test Configuration
 
