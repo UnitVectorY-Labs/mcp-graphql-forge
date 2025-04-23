@@ -1,9 +1,5 @@
 # server.yaml
-mcp_server:
-  name: "ExampleServer"
-  version: "0.1.0"
-graphql:
-  url: "https://api.github.com/graphql"
-auth:
-  # Command to get the Bearer token for authentication
-  token_script: "gh auth token"
+name: "ExampleServer"
+version: "0.1.0"
+url: "https://api.github.com/graphql"
+token_command: "gh auth token"

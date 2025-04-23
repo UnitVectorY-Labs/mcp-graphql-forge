@@ -17,30 +17,20 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// Config holds global server settings
-type Config struct {
-	MCPServer struct {
-		Name    string `yaml:"name"`
-		Version string `yaml:"version"`
-	} `yaml:"mcp_server"`
-	GraphQL struct {
-		URL string `yaml:"url"`
-	} `yaml:"graphql"`
-	Auth struct {
-		TokenScript string `yaml:"token_script"`
-	} `yaml:"auth"`
+// ForgeConfig holds global server settings
+type ForgeConfig struct {
+	Name         string `yaml:"name"`
+	Version      string `yaml:"version"`
+	URL          string `yaml:"url"`
+	TokenCommand string `yaml:"token_command"`
 }
 
 // ToolConfig holds one tool’s YAML definition
 type ToolConfig struct {
-	Tool struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-	} `yaml:"tool"`
-	GraphQL struct {
-		Query string `yaml:"query"`
-	} `yaml:"graphql"`
-	Inputs []struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Query       string `yaml:"query"`
+	Inputs      []struct {
 		Name        string `yaml:"name"`
 		Type        string `yaml:"type"` // "string" or "number"
 		Description string `yaml:"description"`
@@ -76,7 +66,10 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -92,33 +85,38 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 }
 
 // makeHandler produces a ToolHandler for the given configs
-func makeHandler(cfg Config, tcfg ToolConfig) server.ToolHandlerFunc {
+func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		// 1. Gather variables
 		vars := map[string]interface{}{}
 		for _, inp := range tcfg.Inputs {
 			val, ok := req.Params.Arguments[inp.Name]
 			if !ok && inp.Required {
-				return nil, fmt.Errorf("missing required argument: %s", inp.Name)
+				return mcp.NewToolResultError(fmt.Sprintf("missing required argument: %s", inp.Name)), nil
 			}
 			vars[inp.Name] = val
 		}
 
 		// 2. Run token script
 		// Use sh -c to execute the token script string as a shell command
-		cmd := exec.Command("sh", "-c", cfg.Auth.TokenScript)
-		out, err := cmd.Output()
-		if err != nil {
-			// Include stderr in the error message if available
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				return nil, fmt.Errorf("auth script failed: %w, stderr: %s", err, string(exitErr.Stderr))
+		token := ""
+		if cfg.TokenCommand != "" {
+			// Only get a token if the command is specified
+			cmd := exec.Command("sh", "-c", cfg.TokenCommand)
+			out, err := cmd.Output()
+			if err != nil {
+				// Include stderr in the error message if available
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					return mcp.NewToolResultErrorFromErr(fmt.Sprintf("token_command failed: %s", exitErr), err), err
+				}
+
+				return mcp.NewToolResultErrorFromErr("token_command failed", err), nil
 			}
-			return nil, fmt.Errorf("auth script failed: %w", err)
+			token = string(bytes.TrimSpace(out))
 		}
-		token := string(bytes.TrimSpace(out))
 
 		// 3. Call GraphQL
-		result, err := executeGraphQL(cfg.GraphQL.URL, tcfg.GraphQL.Query, vars, token)
+		result, err := executeGraphQL(cfg.URL, tcfg.Query, vars, token)
 		if err != nil {
 			return nil, err
 		}
@@ -136,14 +134,14 @@ func main() {
 	}
 
 	// Load forge.yaml
-	var cfg Config
+	var cfg ForgeConfig
 	forgeConfigPath := filepath.Join(configDir, "forge.yaml")
 	if err := loadConfig(forgeConfigPath, &cfg); err != nil {
 		panic(fmt.Errorf("unable to load %s: %w", forgeConfigPath, err))
 	}
 
 	// Initialize MCP server
-	srv := server.NewMCPServer(cfg.MCPServer.Name, cfg.MCPServer.Version)
+	srv := server.NewMCPServer(cfg.Name, cfg.Version)
 
 	// Discover tool config files in the config directory
 	toolPattern := filepath.Join(configDir, "*.yaml")
@@ -166,7 +164,7 @@ func main() {
 
 		// Build a slice of ToolOption: description + one WithX per input
 		opts := []mcp.ToolOption{
-			mcp.WithDescription(tcfg.Tool.Description),
+			mcp.WithDescription(tcfg.Description),
 		}
 
 		for _, inp := range tcfg.Inputs {
@@ -190,7 +188,7 @@ func main() {
 		}
 
 		// Create and register the tool with all options at once
-		tool := mcp.NewTool(tcfg.Tool.Name, opts...)
+		tool := mcp.NewTool(tcfg.Name, opts...)
 		srv.AddTool(tool, makeHandler(cfg, tcfg))
 	}
 

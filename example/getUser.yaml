@@ -1,17 +1,15 @@
 # getUser.yaml
-tool:
-  name: "getUser"
-  description: "Fetch basic information about user by 'login' including their name, url, and location."
-graphql:
-  query: |
-    query ($login: String!) {
-      user(login: $login) {
-        id
-        name
-        url
-        location
-      }
+name: "getUser"
+description: "Fetch basic information about user by 'login' including their name, url, and location."
+query: |
+  query ($login: String!) {
+    user(login: $login) {
+      id
+      name
+      url
+      location
     }
+  }
 inputs:
   - name: "login"
     type: "string"
