@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
 
@@ -98,19 +99,35 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 		}
 
 		// 2. Run token script
-		// Use sh -c to execute the token script string as a shell command
 		token := ""
 		if cfg.TokenCommand != "" {
+			var cmd *exec.Cmd
+			// Use the appropriate shell based on the OS
+			if runtime.GOOS == "windows" {
+				cmd = exec.Command("cmd", "/C", cfg.TokenCommand)
+			} else {
+				// Assume Unix-like shell for macOS, Linux, etc.
+				cmd = exec.Command("sh", "-c", cfg.TokenCommand)
+			}
+
 			// Only get a token if the command is specified
-			cmd := exec.Command("sh", "-c", cfg.TokenCommand)
 			out, err := cmd.Output()
 			if err != nil {
 				// Include stderr in the error message if available
+				errMsg := "token_command failed"
 				if exitErr, ok := err.(*exec.ExitError); ok {
-					return mcp.NewToolResultErrorFromErr(fmt.Sprintf("token_command failed: %s", exitErr), err), err
+					// Combine exit error message and stderr for better context
+					stderrMsg := string(bytes.TrimSpace(exitErr.Stderr))
+					if stderrMsg != "" {
+						errMsg = fmt.Sprintf("%s: %s Stderr: %s", errMsg, exitErr, stderrMsg) // Corrected format string
+					} else {
+						errMsg = fmt.Sprintf("%s: %s", errMsg, exitErr)
+					}
+					// Return original error too, but nil for MCP result error
+					return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 				}
-
-				return mcp.NewToolResultErrorFromErr("token_command failed", err), nil
+				// Return nil error for MCP result error
+				return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 			}
 			token = string(bytes.TrimSpace(out))
 		}
@@ -118,7 +135,8 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 		// 3. Call GraphQL
 		result, err := executeGraphQL(cfg.URL, tcfg.Query, vars, token)
 		if err != nil {
-			return nil, err
+			// Return error result to MCP instead of terminating
+			return mcp.NewToolResultErrorFromErr("GraphQL execution failed", err), nil
 		}
 
 		// 4. Return raw JSON
