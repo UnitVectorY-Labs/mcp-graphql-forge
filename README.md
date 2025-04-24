@@ -10,7 +10,12 @@ A lightweight, configuration-driven MCP server that exposes curated GraphQL quer
 
 ## Configuration
 
-To configure the MCP server, specify the environment variable `FORGE_CONFIG` pointing to the folder containing the YAML configuration files.
+The server is configured using environment variables and YAML files.
+
+### Environment Variables
+
+- `FORGE_CONFIG`: Specifies the path to the folder containing the YAML configuration files (`forge.yaml` and tool definitions). Defaults to the current directory (`.`) if not set.
+- `FORGE_DEBUG`: If set to `true` (case-insensitive), enables detailed debug logging to `stderr`, including the obtained token and the full HTTP request/response for GraphQL calls. Defaults to `false`.
 
 ### forge.yaml
 

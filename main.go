@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 
@@ -45,6 +48,8 @@ type graphqlRequest struct {
 	Variables map[string]interface{} `json:"variables,omitempty"`
 }
 
+var isDebug bool
+
 // loadConfig reads YAML from path into out
 func loadConfig(path string, out interface{}) error {
 	data, err := os.ReadFile(path)
@@ -72,6 +77,17 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
+	if isDebug {
+		log.Println("--- GraphQL Request ---")
+		reqDump, dumpErr := httputil.DumpRequestOut(req, true)
+		if dumpErr != nil {
+			log.Printf("Error dumping request: %v\n", dumpErr)
+		} else {
+			log.Printf("%s\n", string(reqDump))
+		}
+		log.Println("-----------------------")
+	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
@@ -82,6 +98,21 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
+
+	if isDebug {
+		log.Println("--- GraphQL Response ---")
+		log.Printf("Status Code: %d\n", resp.StatusCode)
+		// Attempt to pretty-print JSON response body if possible
+		var prettyJSON bytes.Buffer
+		if jsonErr := json.Indent(&prettyJSON, respBody, "", "  "); jsonErr == nil {
+			log.Printf("Body:\n%s\n", prettyJSON.String())
+		} else {
+			// Fallback to printing raw body if not valid JSON
+			log.Printf("Body (raw):\n%s\n", string(respBody))
+		}
+		log.Println("------------------------")
+	}
+
 	return respBody, nil
 }
 
@@ -130,6 +161,9 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 				return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 			}
 			token = string(bytes.TrimSpace(out))
+			if isDebug {
+				log.Printf("Obtained token: %s\n", token) // Log the token if debug is enabled
+			}
 		}
 
 		// 3. Call GraphQL
@@ -149,6 +183,18 @@ func main() {
 	configDir := os.Getenv("FORGE_CONFIG")
 	if configDir == "" {
 		configDir = "." // Default to current directory if not set
+	}
+
+	// Check for FORGE_DEBUG environment variable
+	debugEnv := os.Getenv("FORGE_DEBUG")
+	isDebug, _ = strconv.ParseBool(debugEnv) // Ignore error, defaults to false if not set or invalid
+
+	if isDebug {
+		log.SetOutput(os.Stderr) // Ensure logs go to stderr
+		log.Println("Debug mode enabled.")
+	} else {
+		// Disable logging if not in debug mode
+		log.SetOutput(io.Discard)
 	}
 
 	// Load forge.yaml
