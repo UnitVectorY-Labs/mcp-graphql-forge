@@ -155,7 +155,9 @@ func main() {
 	var cfg ForgeConfig
 	forgeConfigPath := filepath.Join(configDir, "forge.yaml")
 	if err := loadConfig(forgeConfigPath, &cfg); err != nil {
-		panic(fmt.Errorf("unable to load %s: %w", forgeConfigPath, err))
+		// Log error and exit gracefully if main config fails
+		fmt.Fprintf(os.Stderr, "Error: unable to load core configuration %s: %v\n", forgeConfigPath, err)
+		os.Exit(1)
 	}
 
 	// Initialize MCP server
@@ -165,7 +167,9 @@ func main() {
 	toolPattern := filepath.Join(configDir, "*.yaml")
 	files, err := filepath.Glob(toolPattern)
 	if err != nil {
-		panic(fmt.Errorf("reading tools from %s: %w", configDir, err))
+		// Log error and exit gracefully if tool discovery fails
+		fmt.Fprintf(os.Stderr, "Error: failed reading tool configurations from %s: %v\n", configDir, err)
+		os.Exit(1)
 	}
 
 	// Register each tool
@@ -177,7 +181,9 @@ func main() {
 
 		var tcfg ToolConfig
 		if err := loadConfig(file, &tcfg); err != nil {
-			panic(fmt.Errorf("parsing %s: %w", file, err))
+			// Log error for specific tool config and continue
+			fmt.Fprintf(os.Stderr, "Warning: skipping tool - failed parsing %s: %v\n", file, err)
+			continue
 		}
 
 		// Build a slice of ToolOption: description + one WithX per input
@@ -185,6 +191,7 @@ func main() {
 			mcp.WithDescription(tcfg.Description),
 		}
 
+		validTool := true // Flag to track if the tool definition is valid
 		for _, inp := range tcfg.Inputs {
 			// Collect property options per input
 			propOpts := []mcp.PropertyOption{
@@ -201,17 +208,24 @@ func main() {
 			case "number":
 				opts = append(opts, mcp.WithNumber(inp.Name, propOpts...))
 			default:
-				panic(fmt.Errorf("unsupported input type %q in %s", inp.Type, file))
+				// Log error for unsupported type and mark tool as invalid
+				fmt.Fprintf(os.Stderr, "Warning: skipping tool %q - unsupported input type %q in %s\n", tcfg.Name, inp.Type, file)
+				validTool = false
+				break // Exit the inner loop for this tool
 			}
 		}
 
-		// Create and register the tool with all options at once
-		tool := mcp.NewTool(tcfg.Name, opts...)
-		srv.AddTool(tool, makeHandler(cfg, tcfg))
+		// Only register the tool if its definition was valid
+		if validTool {
+			tool := mcp.NewTool(tcfg.Name, opts...)
+			srv.AddTool(tool, makeHandler(cfg, tcfg))
+		}
 	}
 
 	// Start serving on stdio
 	if err := server.ServeStdio(srv); err != nil {
-		panic(fmt.Errorf("MCP server terminated: %w", err))
+		// Log fatal error if server fails to start/run
+		fmt.Fprintf(os.Stderr, "Fatal: MCP server terminated: %v\n", err)
+		os.Exit(1) // Exit with error status
 	}
 }
