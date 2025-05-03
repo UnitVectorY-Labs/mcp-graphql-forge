@@ -178,8 +178,8 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 
 func main() {
 	// CLI flag for SSM/HTTP mode
-	var ssmAddr string
-	flag.StringVar(&ssmAddr, "ssm", "", "run in SSM (HTTP/SSE) mode on the given address, e.g. :8080")
+	var sseAddr string
+	flag.StringVar(&sseAddr, "sse", "", "run in SSM (HTTP/SSE) mode on the given address, e.g. :8080")
 	flag.Parse()
 
 	// Config dir
