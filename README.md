@@ -74,6 +74,13 @@ inputs:
     required: true
 ```
 
+### Run in SSE Mode
+
+By default the server runs in stdio mode, but if you want to run in SSE mode, you can specify the `--sse` command line flag specifying the server name and port (ex: localhost:8080).  This will run with the following endpoints that your MCP client can connect to:
+
+- SSE Endpoint: /mcp/sse
+- Message Endpoint: /mcp/message
+
 ## Limitations
 
 - Each instance of `mcp-graphql-forge` can only be used with a single GraphQL server at a single URL.
