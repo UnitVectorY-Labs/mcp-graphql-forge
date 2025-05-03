@@ -179,7 +179,7 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 func main() {
 	// CLI flag for SSE/HTTP mode
 	var sseAddr string
-	flag.StringVar(&sseAddr, "sse", "", "run in SSM (HTTP/SSE) mode on the given address, e.g. :8080")
+	flag.StringVar(&sseAddr, "sse", "", "run in SSE (HTTP/SSE) mode on the given address, e.g. :8080")
 	flag.Parse()
 
 	// Config dir
@@ -268,7 +268,7 @@ func main() {
 			Handler: mux,
 		}
 		if err := httpSrv.ListenAndServe(); err != nil {
-			log.Fatalf("SSM server error: %v\n", err)
+			log.Fatalf("SSE server error: %v\n", err)
 		}
 	} else {
 		// stdio mode
