@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -79,11 +80,10 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 
 	if isDebug {
 		log.Println("--- GraphQL Request ---")
-		reqDump, dumpErr := httputil.DumpRequestOut(req, true)
-		if dumpErr != nil {
-			log.Printf("Error dumping request: %v\n", dumpErr)
+		if dump, err := httputil.DumpRequestOut(req, true); err == nil {
+			log.Printf("%s\n", dump)
 		} else {
-			log.Printf("%s\n", string(reqDump))
+			log.Printf("dump error: %v\n", err)
 		}
 		log.Println("-----------------------")
 	}
@@ -103,12 +103,12 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 		log.Println("--- GraphQL Response ---")
 		log.Printf("Status Code: %d\n", resp.StatusCode)
 		// Attempt to pretty-print JSON response body if possible
-		var prettyJSON bytes.Buffer
-		if jsonErr := json.Indent(&prettyJSON, respBody, "", "  "); jsonErr == nil {
-			log.Printf("Body:\n%s\n", prettyJSON.String())
+		var pretty bytes.Buffer
+		if json.Indent(&pretty, respBody, "", "  ") == nil {
+			log.Printf("Body:\n%s\n", pretty.String())
 		} else {
 			// Fallback to printing raw body if not valid JSON
-			log.Printf("Body (raw):\n%s\n", string(respBody))
+			log.Printf("Body (raw): %s\n", respBody)
 		}
 		log.Println("------------------------")
 	}
@@ -148,130 +148,132 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 				errMsg := "token_command failed"
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					// Combine exit error message and stderr for better context
-					stderrMsg := string(bytes.TrimSpace(exitErr.Stderr))
-					if stderrMsg != "" {
-						errMsg = fmt.Sprintf("%s: %s Stderr: %s", errMsg, exitErr, stderrMsg) // Corrected format string
+					stderr := string(bytes.TrimSpace(exitErr.Stderr))
+					if stderr != "" {
+						errMsg = fmt.Sprintf("%s: %v Stderr: %s", errMsg, exitErr, stderr)
 					} else {
-						errMsg = fmt.Sprintf("%s: %s", errMsg, exitErr)
+						errMsg = fmt.Sprintf("%s: %v", errMsg, exitErr)
 					}
-					// Return original error too, but nil for MCP result error
-					return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 				}
 				// Return nil error for MCP result error
 				return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 			}
 			token = string(bytes.TrimSpace(out))
 			if isDebug {
-				log.Printf("Obtained token: %s\n", token) // Log the token if debug is enabled
+				log.Printf("Obtained token: %s\n", token)
 			}
 		}
 
 		// 3. Call GraphQL
-		result, err := executeGraphQL(cfg.URL, tcfg.Query, vars, token)
+		res, err := executeGraphQL(cfg.URL, tcfg.Query, vars, token)
 		if err != nil {
 			// Return error result to MCP instead of terminating
 			return mcp.NewToolResultErrorFromErr("GraphQL execution failed", err), nil
 		}
 
 		// 4. Return raw JSON
-		return mcp.NewToolResultText(string(result)), nil
+		return mcp.NewToolResultText(string(res)), nil
 	}
 }
 
 func main() {
-	// Get config directory from environment variable, default to "."
+	// CLI flag for SSM/HTTP mode
+	var ssmAddr string
+	flag.StringVar(&ssmAddr, "ssm", "", "run in SSM (HTTP/SSE) mode on the given address, e.g. :8080")
+	flag.Parse()
+
+	// Config dir
 	configDir := os.Getenv("FORGE_CONFIG")
 	if configDir == "" {
-		configDir = "." // Default to current directory if not set
+		configDir = "."
 	}
 
-	// Check for FORGE_DEBUG environment variable
-	debugEnv := os.Getenv("FORGE_DEBUG")
-	isDebug, _ = strconv.ParseBool(debugEnv) // Ignore error, defaults to false if not set or invalid
-
+	// Debug mode
+	isDebug, _ = strconv.ParseBool(os.Getenv("FORGE_DEBUG"))
 	if isDebug {
-		log.SetOutput(os.Stderr) // Ensure logs go to stderr
+		log.SetOutput(os.Stderr)
 		log.Println("Debug mode enabled.")
 	} else {
-		// Disable logging if not in debug mode
 		log.SetOutput(io.Discard)
 	}
 
-	// Load forge.yaml
+	// Load core forge.yaml
 	var cfg ForgeConfig
-	forgeConfigPath := filepath.Join(configDir, "forge.yaml")
-	if err := loadConfig(forgeConfigPath, &cfg); err != nil {
-		// Log error and exit gracefully if main config fails
-		fmt.Fprintf(os.Stderr, "Error: unable to load core configuration %s: %v\n", forgeConfigPath, err)
+	if err := loadConfig(filepath.Join(configDir, "forge.yaml"), &cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading core config: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Initialize MCP server
+	// Init MCP server
 	srv := server.NewMCPServer(cfg.Name, cfg.Version)
 
-	// Discover tool config files in the config directory
-	toolPattern := filepath.Join(configDir, "*.yaml")
-	files, err := filepath.Glob(toolPattern)
+	// Discover & register tools
+	files, err := filepath.Glob(filepath.Join(configDir, "*.yaml"))
 	if err != nil {
-		// Log error and exit gracefully if tool discovery fails
-		fmt.Fprintf(os.Stderr, "Error: failed reading tool configurations from %s: %v\n", configDir, err)
+		fmt.Fprintf(os.Stderr, "Error discovering tools: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Register each tool
-	for _, file := range files {
-		// Skip the main forge.yaml file
-		if filepath.Base(file) == "forge.yaml" {
+	for _, f := range files {
+		if filepath.Base(f) == "forge.yaml" {
 			continue
 		}
-
 		var tcfg ToolConfig
-		if err := loadConfig(file, &tcfg); err != nil {
-			// Log error for specific tool config and continue
-			fmt.Fprintf(os.Stderr, "Warning: skipping tool - failed parsing %s: %v\n", file, err)
+		if err := loadConfig(f, &tcfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: skipping %s: %v\n", f, err)
 			continue
 		}
 
-		// Build a slice of ToolOption: description + one WithX per input
-		opts := []mcp.ToolOption{
-			mcp.WithDescription(tcfg.Description),
-		}
-
-		validTool := true // Flag to track if the tool definition is valid
+		opts := []mcp.ToolOption{mcp.WithDescription(tcfg.Description)}
+		valid := true
 		for _, inp := range tcfg.Inputs {
-			// Collect property options per input
-			propOpts := []mcp.PropertyOption{
-				mcp.Description(inp.Description),
-			}
+			pOpts := []mcp.PropertyOption{mcp.Description(inp.Description)}
 			if inp.Required {
-				propOpts = append(propOpts, mcp.Required())
+				pOpts = append(pOpts, mcp.Required())
 			}
-
-			// Choose the right WithX and append to opts
 			switch inp.Type {
 			case "string":
-				opts = append(opts, mcp.WithString(inp.Name, propOpts...))
+				opts = append(opts, mcp.WithString(inp.Name, pOpts...))
 			case "number":
-				opts = append(opts, mcp.WithNumber(inp.Name, propOpts...))
+				opts = append(opts, mcp.WithNumber(inp.Name, pOpts...))
 			default:
-				// Log error for unsupported type and mark tool as invalid
-				fmt.Fprintf(os.Stderr, "Warning: skipping tool %q - unsupported input type %q in %s\n", tcfg.Name, inp.Type, file)
-				validTool = false
-				break // Exit the inner loop for this tool
+				fmt.Fprintf(os.Stderr, "Warning: unsupported type %q in %s\n", inp.Type, tcfg.Name)
+				valid = false
 			}
 		}
-
-		// Only register the tool if its definition was valid
-		if validTool {
-			tool := mcp.NewTool(tcfg.Name, opts...)
-			srv.AddTool(tool, makeHandler(cfg, tcfg))
+		if !valid {
+			continue
 		}
+		tool := mcp.NewTool(tcfg.Name, opts...)
+		srv.AddTool(tool, makeHandler(cfg, tcfg))
 	}
 
-	// Start serving on stdio
-	if err := server.ServeStdio(srv); err != nil {
-		// Log fatal error if server fails to start/run
-		fmt.Fprintf(os.Stderr, "Fatal: MCP server terminated: %v\n", err)
-		os.Exit(1) // Exit with error status
+	// Choose mode
+	if ssmAddr != "" {
+		// SSE mode
+		fmt.Printf("Starting MCP server in SSM mode on %s\n", ssmAddr)
+		sseSrv := server.NewSSEServer(
+			srv,
+			server.WithBasePath("/"),
+			server.WithSSEEndpoint("/mcp/sse"),
+			server.WithMessageEndpoint("/mcp/message"),
+		)
+		mux := http.NewServeMux()
+		mux.Handle("/", sseSrv)
+
+		fmt.Printf("SSE Endpoint: %s\n", sseSrv.CompleteSsePath())
+		fmt.Printf("Message Endpoint: %s\n", sseSrv.CompleteMessagePath())
+
+		httpSrv := &http.Server{
+			Addr:    ssmAddr,
+			Handler: mux,
+		}
+		if err := httpSrv.ListenAndServe(); err != nil {
+			log.Fatalf("SSM server error: %v\n", err)
+		}
+	} else {
+		// stdio mode
+		if err := server.ServeStdio(srv); err != nil {
+			log.Fatalf("Fatal: MCP server terminated: %v\n", err)
+		}
 	}
 }
