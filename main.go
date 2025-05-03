@@ -177,7 +177,7 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 }
 
 func main() {
-	// CLI flag for SSM/HTTP mode
+	// CLI flag for SSE/HTTP mode
 	var sseAddr string
 	flag.StringVar(&sseAddr, "sse", "", "run in SSM (HTTP/SSE) mode on the given address, e.g. :8080")
 	flag.Parse()
@@ -248,9 +248,9 @@ func main() {
 	}
 
 	// Choose mode
-	if ssmAddr != "" {
+	if sseAddr != "" {
 		// SSE mode
-		fmt.Printf("Starting MCP server in SSM mode on %s\n", ssmAddr)
+		fmt.Printf("Starting MCP server in SSE mode on %s\n", sseAddr)
 		sseSrv := server.NewSSEServer(
 			srv,
 			server.WithBasePath("/"),
@@ -264,7 +264,7 @@ func main() {
 		fmt.Printf("Message Endpoint: %s\n", sseSrv.CompleteMessagePath())
 
 		httpSrv := &http.Server{
-			Addr:    ssmAddr,
+			Addr:    sseAddr,
 			Handler: mux,
 		}
 		if err := httpSrv.ListenAndServe(); err != nil {
