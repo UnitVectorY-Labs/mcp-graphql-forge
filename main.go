@@ -253,7 +253,7 @@ func main() {
 		fmt.Printf("Starting MCP server in SSE mode on %s\n", sseAddr)
 		sseSrv := server.NewSSEServer(
 			srv,
-			server.WithBasePath("/"),
+			server.WithStaticBasePath("/"),
 			server.WithSSEEndpoint("/mcp/sse"),
 			server.WithMessageEndpoint("/mcp/message"),
 		)
