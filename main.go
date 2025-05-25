@@ -121,8 +121,9 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		// 1. Gather variables
 		vars := map[string]interface{}{}
+		args := req.GetArguments()
 		for _, inp := range tcfg.Inputs {
-			val, ok := req.Params.Arguments[inp.Name]
+			val, ok := args[inp.Name]
 			if !ok && inp.Required {
 				return mcp.NewToolResultError(fmt.Sprintf("missing required argument: %s", inp.Name)), nil
 			}
