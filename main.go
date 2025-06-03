@@ -24,10 +24,12 @@ import (
 
 // ForgeConfig holds global server settings
 type ForgeConfig struct {
-	Name         string `yaml:"name"`
-	Version      string `yaml:"version"`
-	URL          string `yaml:"url"`
-	TokenCommand string `yaml:"token_command"`
+	Name           string            `yaml:"name"`
+	Version        string            `yaml:"version"`
+	URL            string            `yaml:"url"`
+	TokenCommand   string            `yaml:"token_command"`
+	Env            map[string]string `yaml:"env,omitempty"`
+	EnvPassthrough bool              `yaml:"env_passthrough,omitempty"`
 }
 
 // ToolConfig holds one tool's YAML definition
@@ -140,6 +142,27 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 			} else {
 				// Assume Unix-like shell for macOS, Linux, etc.
 				cmd = exec.Command("sh", "-c", cfg.TokenCommand)
+			}
+
+			// Set up environment variables for the command
+			if cfg.EnvPassthrough {
+				// Pass all current environment variables
+				cmd.Env = os.Environ()
+			} else {
+				// Start with an empty environment
+				cmd.Env = []string{}
+			}
+
+			// Add specific environment variables from config
+			for key, value := range cfg.Env {
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+			}
+
+			if isDebug {
+				log.Printf("Executing token command: %s", cfg.TokenCommand)
+				if len(cmd.Env) > 0 {
+					log.Printf("Environment variables: %v", cmd.Env)
+				}
 			}
 
 			// Only get a token if the command is specified
