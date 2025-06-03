@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -144,19 +145,28 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 				cmd = exec.Command("sh", "-c", cfg.TokenCommand)
 			}
 
-			// Set up environment variables for the command
+			// Build merged environment: start with os.Environ() if passthrough, else start empty,
+			// then overlay values from cfg.Env to ensure overrides.
+			var envList []string
 			if cfg.EnvPassthrough {
-				// Pass all current environment variables
-				cmd.Env = os.Environ()
+				envList = os.Environ()
 			} else {
-				// Start with an empty environment
-				cmd.Env = []string{}
+				envList = []string{}
 			}
 
-			// Add specific environment variables from config
 			for key, value := range cfg.Env {
-				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+				// Remove any existing entries for this key
+				prefix := key + "="
+				filtered := envList[:0]
+				for _, e := range envList {
+					if !strings.HasPrefix(e, prefix) {
+						filtered = append(filtered, e)
+					}
+				}
+				envList = append(filtered, fmt.Sprintf("%s=%s", key, value))
 			}
+
+			cmd.Env = envList
 
 			if isDebug {
 				log.Printf("Executing token command: %s", cfg.TokenCommand)
