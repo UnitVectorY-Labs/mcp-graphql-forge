@@ -27,6 +27,8 @@ The following attributes can be specified in the file:
 - `version`: The version of the MCP server
 - `url`: The URL of the GraphQL endpoint
 - `token_command`: The command to use to request the Bearer token for the `Authorization` header (optional)
+- `env`: A map of environment variables to pass to the token command (optional)
+- `env_passthrough`: If set to `true`, passes all environment variables used when invoking mcp-graphql-forge to the token command; if used in conjunction with `env`, the variables from `env` will take precedence (optional, defaults to `false`)
 
 An example configuration would look like:
 
