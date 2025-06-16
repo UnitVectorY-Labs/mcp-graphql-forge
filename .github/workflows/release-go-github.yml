@@ -45,6 +45,7 @@ jobs:
         goarch: ${{ matrix.goarch }}
         project_path: "./"
         binary_name: ${{ github.event.repository.name }}
+        ldflags: "-X 'main.Version=${{ github.ref_name }}'"
         md5sum: true
         sha256sum: true
 
