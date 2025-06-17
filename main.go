@@ -23,10 +23,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+var Version = "dev" // This will be set by the build systems to the release version
+
 // ForgeConfig holds global server settings
 type ForgeConfig struct {
 	Name           string            `yaml:"name"`
-	Version        string            `yaml:"version"`
 	URL            string            `yaml:"url"`
 	TokenCommand   string            `yaml:"token_command"`
 	Env            map[string]string `yaml:"env,omitempty"`
@@ -239,7 +240,7 @@ func main() {
 	}
 
 	// Init MCP server
-	srv := server.NewMCPServer(cfg.Name, cfg.Version)
+	srv := server.NewMCPServer(cfg.Name, Version)
 
 	// Discover & register tools
 	files, err := filepath.Glob(filepath.Join(configDir, "*.yaml"))

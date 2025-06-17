@@ -24,7 +24,6 @@ The configuration folder uses a special configuration file `forge.yaml` that spe
 The following attributes can be specified in the file:
 
 - `name`: The name of the MCP server
-- `version`: The version of the MCP server
 - `url`: The URL of the GraphQL endpoint
 - `token_command`: The command to use to request the Bearer token for the `Authorization` header (optional)
 - `env`: A map of environment variables to pass to the token command (optional)
@@ -34,7 +33,6 @@ An example configuration would look like:
 
 ```yaml
 name: "ExampleServer"
-version: "0.1.0"
 url: "https://api.github.com/graphql"
 token_command: "gh auth token"
 ```
