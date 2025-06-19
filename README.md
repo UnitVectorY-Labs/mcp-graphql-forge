@@ -8,6 +8,10 @@ A lightweight, configuration-driven MCP server that exposes curated GraphQL quer
 
 `mcp-graphql-forge` lets you turn any GraphQL endpoint into an MCP server whose tools are defined in YAML files that specify the GraphQL queries and their parameters. This allows you to create a modular, secure, and minimal server that can be easily extended without modifying the application code.
 
+## Releases
+
+All official versions of **mcp-graphql-forge** are published on [GitHub Releases](https://github.com/UnitVectorY-Labs/mcp-graphql-forge/releases). Since this MCP server is written in Go, each release provides pre-compiled executables for macOS, Linux, and Windows—ready to download and run.
+
 ## Configuration
 
 The server is configured using environment variables and YAML files.
