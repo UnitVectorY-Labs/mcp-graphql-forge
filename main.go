@@ -45,15 +45,17 @@ type ToolConfig struct {
 		Description string `yaml:"description"`
 		Required    bool   `yaml:"required"`
 	} `yaml:"inputs"`
-	Annotations struct {
-		Title           string `yaml:"title,omitempty"`
-		ReadOnlyHint    *bool  `yaml:"readOnlyHint,omitempty"`
-		DestructiveHint *bool  `yaml:"destructiveHint,omitempty"`
-		IdempotentHint  *bool  `yaml:"idempotentHint,omitempty"`
-		OpenWorldHint   *bool  `yaml:"openWorldHint,omitempty"`
-	} `yaml:"annotations,omitempty"`
+	Annotations ToolAnnotations `yaml:"annotations,omitempty"`
 }
 
+// ToolAnnotations defines the annotations for a tool
+type ToolAnnotations struct {
+	Title           string `yaml:"title,omitempty"`
+	ReadOnlyHint    *bool  `yaml:"readOnlyHint,omitempty"`
+	DestructiveHint *bool  `yaml:"destructiveHint,omitempty"`
+	IdempotentHint  *bool  `yaml:"idempotentHint,omitempty"`
+	OpenWorldHint   *bool  `yaml:"openWorldHint,omitempty"`
+}
 // graphqlRequest is the POST payload for GraphQL
 type graphqlRequest struct {
 	Query     string                 `json:"query"`
