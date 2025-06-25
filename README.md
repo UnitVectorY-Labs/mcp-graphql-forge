@@ -12,6 +12,12 @@ A lightweight, configuration-driven MCP server that exposes curated GraphQL quer
 
 All official versions of **mcp-graphql-forge** are published on [GitHub Releases](https://github.com/UnitVectorY-Labs/mcp-graphql-forge/releases). Since this MCP server is written in Go, each release provides pre-compiled executables for macOS, Linux, and Windows—ready to download and run.
 
+Alternatively, if you have Go installed, you can install **mcp-graphql-forge** directly from source using the following command:
+
+```bash
+go install github.com/UnitVectorY-Labs/mcp-graphql-forge@latest
+```
+
 ## Configuration
 
 The server is configured using environment variables and YAML files.
