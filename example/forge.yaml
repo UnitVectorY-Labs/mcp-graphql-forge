@@ -4,7 +4,7 @@ url: "https://api.github.com/graphql"
 token_command: "gh auth token"
 
 # All of the environment variables passed to mcp-graphql-forge will be passed when invoking the token command.
-# env_passthrough: true
+env_passthrough: true
 
 # Specific environment variables to pass when invoking the token command.
 env:

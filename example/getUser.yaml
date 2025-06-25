@@ -15,3 +15,9 @@ inputs:
     type: "string"
     description: "The user `login` that uniquely identifies their account."
     required: true
+annotations:
+  title: "Get User Information"
+  readOnlyHint: true
+  destructiveHint: false
+  idempotentHint: true
+  openWorldHint: true

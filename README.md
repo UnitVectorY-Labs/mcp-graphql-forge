@@ -62,6 +62,12 @@ The following attributes can be specified in the file:
   - `type`: The parameter type; can be 'string' or 'number'
   - `description`: The description of the parameter for the MCP tool to use
   - `required`: Boolean value specifying if the attribute is required
+- `annotations`: MCP annotations that provide hints about the tool's behavior (optional)
+  - `title`: A human-readable title for the tool, useful for UI display (optional)
+  - `readOnlyHint`: If true, indicates the tool does not modify its environment (optional, default: false)
+  - `destructiveHint`: If true, the tool may perform destructive updates (only meaningful when readOnlyHint is false) (optional, default: true)
+  - `idempotentHint`: If true, calling the tool repeatedly with the same arguments has no additional effect (only meaningful when readOnlyHint is false) (optional, default: false)
+  - `openWorldHint`: If true, the tool may interact with an "open world" of external entities (optional, default: true)
 
 An example configuration would look like:
 
@@ -82,6 +88,12 @@ inputs:
     type: "string"
     description: "The user `login` that uniquely identifies their account."
     required: true
+annotations:
+  title: "Get User Information"
+  readOnlyHint: true
+  destructiveHint: false
+  idempotentHint: true
+  openWorldHint: true
 ```
 
 ### Run in SSE Mode

@@ -45,8 +45,17 @@ type ToolConfig struct {
 		Description string `yaml:"description"`
 		Required    bool   `yaml:"required"`
 	} `yaml:"inputs"`
+	Annotations ToolAnnotations `yaml:"annotations,omitempty"`
 }
 
+// ToolAnnotations defines the annotations for a tool
+type ToolAnnotations struct {
+	Title           string `yaml:"title,omitempty"`
+	ReadOnlyHint    *bool  `yaml:"readOnlyHint,omitempty"`
+	DestructiveHint *bool  `yaml:"destructiveHint,omitempty"`
+	IdempotentHint  *bool  `yaml:"idempotentHint,omitempty"`
+	OpenWorldHint   *bool  `yaml:"openWorldHint,omitempty"`
+}
 // graphqlRequest is the POST payload for GraphQL
 type graphqlRequest struct {
 	Query     string                 `json:"query"`
@@ -258,7 +267,26 @@ func main() {
 			continue
 		}
 
-		opts := []mcp.ToolOption{mcp.WithDescription(tcfg.Description)}
+		opts := []mcp.ToolOption{
+			mcp.WithDescription(tcfg.Description),
+		}
+
+		// Add annotations if specified
+		if tcfg.Annotations.Title != "" {
+			opts = append(opts, mcp.WithTitleAnnotation(tcfg.Annotations.Title))
+		}
+		if tcfg.Annotations.ReadOnlyHint != nil {
+			opts = append(opts, mcp.WithReadOnlyHintAnnotation(*tcfg.Annotations.ReadOnlyHint))
+		}
+		if tcfg.Annotations.DestructiveHint != nil {
+			opts = append(opts, mcp.WithDestructiveHintAnnotation(*tcfg.Annotations.DestructiveHint))
+		}
+		if tcfg.Annotations.IdempotentHint != nil {
+			opts = append(opts, mcp.WithIdempotentHintAnnotation(*tcfg.Annotations.IdempotentHint))
+		}
+		if tcfg.Annotations.OpenWorldHint != nil {
+			opts = append(opts, mcp.WithOpenWorldHintAnnotation(*tcfg.Annotations.OpenWorldHint))
+		}
 		valid := true
 		for _, inp := range tcfg.Inputs {
 			pOpts := []mcp.PropertyOption{mcp.Description(inp.Description)}
