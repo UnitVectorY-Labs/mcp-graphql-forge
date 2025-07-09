@@ -1,6 +1,6 @@
 module github.com/UnitVectorY-Labs/mcp-graphql-forge
 
-go 1.24.4 // GOVERSION
+go 1.24.5 // GOVERSION
 
 require (
 	github.com/mark3labs/mcp-go v0.32.0
