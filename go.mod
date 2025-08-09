@@ -3,7 +3,7 @@ module github.com/UnitVectorY-Labs/mcp-graphql-forge
 go 1.24.6 // GOVERSION
 
 require (
-	github.com/mark3labs/mcp-go v0.36.0
+	github.com/mark3labs/mcp-go v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
