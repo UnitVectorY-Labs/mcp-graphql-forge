@@ -56,6 +56,7 @@ type ToolAnnotations struct {
 	IdempotentHint  *bool  `yaml:"idempotentHint,omitempty"`
 	OpenWorldHint   *bool  `yaml:"openWorldHint,omitempty"`
 }
+
 // graphqlRequest is the POST payload for GraphQL
 type graphqlRequest struct {
 	Query     string                 `json:"query"`
@@ -221,9 +222,9 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 }
 
 func main() {
-	// CLI flag for SSE/HTTP mode
-	var sseAddr string
-	flag.StringVar(&sseAddr, "sse", "", "run in SSE (HTTP/SSE) mode on the given address, e.g. :8080")
+	// CLI flag for HTTP streaming mode
+	var httpAddr string
+	flag.StringVar(&httpAddr, "http", "", "run HTTP streamable transport on the given address, e.g. :8080 (defaults to stdio if empty)")
 	flag.Parse()
 
 	// Config dir
@@ -311,32 +312,17 @@ func main() {
 	}
 
 	// Choose mode
-	if sseAddr != "" {
-		// SSE mode
-		fmt.Printf("Starting MCP server in SSE mode on %s\n", sseAddr)
-		sseSrv := server.NewSSEServer(
-			srv,
-			server.WithStaticBasePath("/"),
-			server.WithSSEEndpoint("/mcp/sse"),
-			server.WithMessageEndpoint("/mcp/message"),
-		)
-		mux := http.NewServeMux()
-		mux.Handle("/", sseSrv)
-
-		fmt.Printf("SSE Endpoint: %s\n", sseSrv.CompleteSsePath())
-		fmt.Printf("Message Endpoint: %s\n", sseSrv.CompleteMessagePath())
-
-		httpSrv := &http.Server{
-			Addr:    sseAddr,
-			Handler: mux,
+	if httpAddr != "" {
+		fmt.Printf("Starting MCP server using Streamable HTTP transport on %s\n", httpAddr)
+		streamSrv := server.NewStreamableHTTPServer(srv)
+		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
+		if err := streamSrv.Start(":" + httpAddr); err != nil {
+			log.Fatalf("Streamable HTTP server error: %v\n", err)
 		}
-		if err := httpSrv.ListenAndServe(); err != nil {
-			log.Fatalf("SSE server error: %v\n", err)
-		}
-	} else {
-		// stdio mode
-		if err := server.ServeStdio(srv); err != nil {
-			log.Fatalf("Fatal: MCP server terminated: %v\n", err)
-		}
+		return
+	}
+	// stdio mode
+	if err := server.ServeStdio(srv); err != nil {
+		log.Fatalf("Fatal: MCP server terminated: %v\n", err)
 	}
 }

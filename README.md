@@ -96,12 +96,20 @@ annotations:
   openWorldHint: true
 ```
 
-### Run in SSE Mode
 
-By default the server runs in stdio mode, but if you want to run in SSE mode, you can specify the `--sse` command line flag specifying the server name and port (ex: localhost:8080).  This will run with the following endpoints that your MCP client can connect to:
+### Run in Streamable HTTP Mode
 
-- SSE Endpoint: /mcp/sse
-- Message Endpoint: /mcp/message
+By default the server runs in stdio mode, but if you want to run in streamable HTTP mode, you can specify the `--http` command line flag with the server address and port (ex: `--http :8080`). This will run the server with the following endpoint that your MCP client can connect to:
+
+- Streamable HTTP Endpoint: `/mcp`
+
+Example:
+
+```bash
+./mcp-graphql-forge --http :8080
+```
+
+This will start the server and print the endpoint URL. The SSE mode is no longer supported and has been replaced by this HTTP streaming transport.
 
 ## Limitations
 
