@@ -224,7 +224,7 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 func main() {
 	// CLI flag for HTTP streaming mode
 	var httpAddr string
-	flag.StringVar(&httpAddr, "http", "", "run HTTP streamable transport on the given address, e.g. :8080 (defaults to stdio if empty)")
+	flag.StringVar(&httpAddr, "http", "", "run HTTP streamable transport on the given address, e.g. 8080 (defaults to stdio if empty)")
 	flag.Parse()
 
 	// Config dir
@@ -319,10 +319,8 @@ func main() {
 		if err := streamSrv.Start(":" + httpAddr); err != nil {
 			log.Fatalf("Streamable HTTP server error: %v\n", err)
 		}
-		return
-	}
-	// stdio mode
-	if err := server.ServeStdio(srv); err != nil {
+	} else if err := server.ServeStdio(srv); err != nil {
+		// stdio mode
 		log.Fatalf("Fatal: MCP server terminated: %v\n", err)
 	}
 }

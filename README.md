@@ -99,7 +99,7 @@ annotations:
 
 ### Run in Streamable HTTP Mode
 
-By default the server runs in stdio mode, but if you want to run in streamable HTTP mode, you can specify the `--http` command line flag with the server address and port (ex: `--http :8080`). This will run the server with the following endpoint that your MCP client can connect to:
+By default the server runs in stdio mode, but if you want to run in streamable HTTP mode, you can specify the `--http` command line flag with the server address and port (ex: `--http 8080`). This will run the server with the following endpoint that your MCP client can connect to:
 
 - Streamable HTTP Endpoint: `/mcp`
 
