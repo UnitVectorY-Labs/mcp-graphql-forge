@@ -222,19 +222,36 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 }
 
 func main() {
-	// CLI flag for HTTP streaming mode
+
+	// CLI flags
 	var httpAddr string
+	var forgeConfigFlag string
+	var forgeDebugFlag bool
+
 	flag.StringVar(&httpAddr, "http", "", "run HTTP streamable transport on the given address, e.g. 8080 (defaults to stdio if empty)")
+	flag.StringVar(&forgeConfigFlag, "forgeConfig", "", "path to the folder containing forge.yaml and tool definitions (overrides FORGE_CONFIG env)")
+	flag.BoolVar(&forgeDebugFlag, "forgeDebug", false, "enable debug logging (overrides FORGE_DEBUG env)")
+
 	flag.Parse()
 
-	// Config dir
-	configDir := os.Getenv("FORGE_CONFIG")
-	if configDir == "" {
-		configDir = "."
+	// Determine config directory
+	configDir := ""
+	if forgeConfigFlag != "" {
+		configDir = forgeConfigFlag
+	} else if env := os.Getenv("FORGE_CONFIG"); env != "" {
+		configDir = env
+	} else {
+		fmt.Fprintln(os.Stderr, "Error: configuration directory must be set via --forgeConfig or FORGE_CONFIG environment variable.")
+		os.Exit(1)
 	}
 
-	// Debug mode
-	isDebug, _ = strconv.ParseBool(os.Getenv("FORGE_DEBUG"))
+	// Determine debug mode
+	isDebug = false
+	if forgeDebugFlag {
+		isDebug = true
+	} else if env := os.Getenv("FORGE_DEBUG"); env != "" {
+		isDebug, _ = strconv.ParseBool(env)
+	}
 	if isDebug {
 		log.SetOutput(os.Stderr)
 		log.Println("Debug mode enabled.")
