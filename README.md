@@ -25,7 +25,7 @@ The server is configured using command line parameters, environment variables, a
 
 ### Command Line Parameters
 
-- `--forgeConfig`: Specifies the path to the folder containing the YAML configuration files (`forge.yaml` and tool definitions`). If set, this takes precedence over the `FORGE_CONFIG` environment variable. If neither is set, the application will return an error and exit.
+- `--forgeConfig`: Specifies the path to the folder containing the YAML configuration files (`forge.yaml` and tool definitions). If set, this takes precedence over the `FORGE_CONFIG` environment variable. If neither is set, the application will return an error and exit.
 - `--forgeDebug`: If provided, enables detailed debug logging to `stderr`, including the obtained token and the full HTTP request/response for GraphQL calls. If set, this takes precedence over the `FORGE_DEBUG` environment variable.
 
 ### Environment Variables
