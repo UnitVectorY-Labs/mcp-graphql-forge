@@ -107,18 +107,15 @@ annotations:
 
 By default the server runs in stdio mode, but if you want to run in streamable HTTP mode, you can specify the `--http` command line flag with the server address and port (ex: `--http 8080`). This will run the server with the following endpoint that your MCP client can connect to:
 
-- Streamable HTTP Endpoint: `/mcp`
-
-Example:
+`http://localhost:8080/mcp`
 
 ```bash
-./mcp-graphql-forge --http :8080
+./mcp-graphql-forge --http 8080
 ```
 
-This will start the server and print the endpoint URL. The SSE mode is no longer supported and has been replaced by this HTTP streaming transport.
+If you do not specify `token_command` in the configuration, the "Authorization" header, if passed to the MCP server, will be passed through from the incoming MCP request to the backend GraphQL endpoint.
 
 ## Limitations
 
 - Each instance of `mcp-graphql-forge` can only be used with a single GraphQL server at a single URL.
-- All requests use the same Authorization header in the form of a Bearer token.
-- The GraphQL queries are all exposed as Tools and not as Resources, even if they are not mutations. This is because not all MCP clients currently support Resources.
+- The GraphQL queries are all exposed as Tools and not as Resources, even if they are not mutations.
