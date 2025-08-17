@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -63,6 +64,8 @@ type graphqlRequest struct {
 	Variables map[string]interface{} `json:"variables,omitempty"`
 }
 
+type ctxAuthKey struct{}
+
 var isDebug bool
 
 // loadConfig reads YAML from path into out
@@ -89,7 +92,7 @@ func executeGraphQL(url, query string, vars map[string]interface{}, token string
 	req.Header.Set("Content-Type", "application/json")
 
 	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Authorization", token)
 	}
 
 	if isDebug {
@@ -144,7 +147,7 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 			vars[inp.Name] = val
 		}
 
-		// 2. Run token script
+		// 2. Get the token
 		token := ""
 		if cfg.TokenCommand != "" {
 			var cmd *exec.Cmd
@@ -203,9 +206,17 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig) server.ToolHandlerFunc {
 				// Return nil error for MCP result error
 				return mcp.NewToolResultErrorFromErr(errMsg, err), nil
 			}
-			token = string(bytes.TrimSpace(out))
+			token = "Bearer " + string(bytes.TrimSpace(out))
+
 			if isDebug {
-				log.Printf("Obtained token: %s\n", token)
+				log.Printf("Obtained token (sha256): %x\n", sha256.Sum256([]byte(token)))
+			}
+		} else {
+			// No token command specified, proceed with pass through token
+			token, _ = ctx.Value(ctxAuthKey{}).(string)
+
+			if isDebug {
+				log.Printf("Pass through token (sha256): %x\n", sha256.Sum256([]byte(token)))
 			}
 		}
 
@@ -331,7 +342,16 @@ func main() {
 	// Choose mode
 	if httpAddr != "" {
 		fmt.Printf("Starting MCP server using Streamable HTTP transport on %s\n", httpAddr)
-		streamSrv := server.NewStreamableHTTPServer(srv)
+		streamSrv := server.NewStreamableHTTPServer(
+			srv,
+			server.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
+				// Inject authorization token into context
+				if auth := r.Header.Get("Authorization"); auth != "" {
+					ctx = context.WithValue(ctx, ctxAuthKey{}, auth)
+				}
+				return ctx
+			}),
+		)
 		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
 		if err := streamSrv.Start(":" + httpAddr); err != nil {
 			log.Fatalf("Streamable HTTP server error: %v\n", err)
