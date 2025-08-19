@@ -1,5 +1,7 @@
 [![GitHub release](https://img.shields.io/github/release/UnitVectorY-Labs/mcp-graphql-forge.svg)](https://github.com/UnitVectorY-Labs/mcp-graphql-forge/releases/latest) [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT) [![Active](https://img.shields.io/badge/Status-Active-green)](https://guide.unitvectorylabs.com/bestpractices/status/#active) [![Go Report Card](https://goreportcard.com/badge/github.com/UnitVectorY-Labs/mcp-graphql-forge)](https://goreportcard.com/report/github.com/UnitVectorY-Labs/mcp-graphql-forge)
 
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/UnitVectorY-Labs/mcp-graphql-forge)](https://archestra.ai/mcp-catalog/unitvectory-labs__mcp-graphql-forge)
+
 # mcp-graphql-forge
 
 A lightweight, configuration-driven MCP server that exposes curated GraphQL queries as modular tools, enabling intentional API interactions from your agents.
