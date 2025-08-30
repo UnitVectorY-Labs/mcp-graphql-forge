@@ -50,7 +50,7 @@ jobs:
         sha256sum: true
 
     - name: GitHub Attestation for Artifacts
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: |
           "${{ steps.go_release.outputs.release_asset_dir }}/*"
