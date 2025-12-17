@@ -101,6 +101,58 @@ func RegisterTools(srv *server.MCPServer, cfg *ForgeConfig, configDir string, is
 	return nil
 }
 
+// processOutput converts the GraphQL response based on the output format
+func processOutput(res []byte, output string, isDebug bool) string {
+	if output == "" {
+		output = "raw" // default to raw for backwards compatibility
+	}
+
+	switch output {
+	case "raw":
+		// Pass through the server response as-is
+		return string(res)
+	case "json":
+		// Minimize JSON by removing unnecessary spacing
+		return processJSONOutput(res, isDebug, func(jsonData interface{}) ([]byte, error) {
+			return json.Marshal(jsonData)
+		}, "minimization")
+	case "toon":
+		// Convert JSON to TOON format
+		return processJSONOutput(res, isDebug, func(jsonData interface{}) ([]byte, error) {
+			return toon.Marshal(jsonData)
+		}, "TOON conversion")
+	default:
+		// Unknown output type, default to raw
+		if isDebug {
+			log.Printf("Warning: unknown output type %q, defaulting to raw", output)
+		}
+		return string(res)
+	}
+}
+
+// processJSONOutput is a helper that unmarshals JSON and applies a transformation function
+func processJSONOutput(res []byte, isDebug bool, transformFunc func(interface{}) ([]byte, error), operationName string) string {
+	var jsonData interface{}
+	if err := json.Unmarshal(res, &jsonData); err != nil {
+		// If not valid JSON, fall back to raw output
+		if isDebug {
+			log.Printf("Warning: failed to parse JSON for %s, returning raw: %v", operationName, err)
+		}
+		return string(res)
+	}
+
+	transformed, err := transformFunc(jsonData)
+	if err != nil {
+		// If transformation fails, fall back to raw output
+		if isDebug {
+			log.Printf("Warning: failed to perform %s, returning raw: %v", operationName, err)
+		}
+		return string(res)
+	}
+
+	return string(transformed)
+}
+
 // makeHandler produces a ToolHandler for the given configs
 func makeHandler(cfg ForgeConfig, tcfg ToolConfig, isDebug bool) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -196,65 +248,7 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig, isDebug bool) server.ToolHand
 		}
 
 		// 4. Process output based on configuration
-		output := tcfg.Output
-		if output == "" {
-			output = "raw" // default to raw for backwards compatibility
-		}
-
-		var result string
-		switch output {
-		case "raw":
-			// Pass through the server response as-is
-			result = string(res)
-		case "json":
-			// Minimize JSON by removing unnecessary spacing
-			var jsonData interface{}
-			if err := json.Unmarshal(res, &jsonData); err != nil {
-				// If not valid JSON, fall back to raw output
-				if isDebug {
-					log.Printf("Warning: failed to parse JSON for minimization, returning raw: %v", err)
-				}
-				result = string(res)
-			} else {
-				minimized, err := json.Marshal(jsonData)
-				if err != nil {
-					// If minimization fails, fall back to raw output
-					if isDebug {
-						log.Printf("Warning: failed to minimize JSON, returning raw: %v", err)
-					}
-					result = string(res)
-				} else {
-					result = string(minimized)
-				}
-			}
-		case "toon":
-			// Convert JSON to TOON format
-			var jsonData interface{}
-			if err := json.Unmarshal(res, &jsonData); err != nil {
-				// If not valid JSON, fall back to raw output
-				if isDebug {
-					log.Printf("Warning: failed to parse JSON for TOON conversion, returning raw: %v", err)
-				}
-				result = string(res)
-			} else {
-				toonOutput, err := toon.Marshal(jsonData)
-				if err != nil {
-					// If TOON conversion fails, fall back to raw output
-					if isDebug {
-						log.Printf("Warning: failed to convert to TOON format, returning raw: %v", err)
-					}
-					result = string(res)
-				} else {
-					result = string(toonOutput)
-				}
-			}
-		default:
-			// Unknown output type, default to raw
-			if isDebug {
-				log.Printf("Warning: unknown output type %q, defaulting to raw", output)
-			}
-			result = string(res)
-		}
+		result := processOutput(res, tcfg.Output, isDebug)
 
 		return mcp.NewToolResultText(result), nil
 	}
