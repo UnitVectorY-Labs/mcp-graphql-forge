@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/toon-format/toon-go"
 )
 
 // CtxAuthKey is used as a key for storing auth tokens in context
@@ -97,6 +99,58 @@ func RegisterTools(srv *server.MCPServer, cfg *ForgeConfig, configDir string, is
 	}
 
 	return nil
+}
+
+// processOutput converts the GraphQL response based on the output format
+func processOutput(res []byte, output string, isDebug bool) string {
+	if output == "" {
+		output = "raw" // default to raw for backwards compatibility
+	}
+
+	switch output {
+	case "raw":
+		// Pass through the server response as-is
+		return string(res)
+	case "json":
+		// Minimize JSON by removing unnecessary spacing
+		return processJSONOutput(res, isDebug, func(jsonData interface{}) ([]byte, error) {
+			return json.Marshal(jsonData)
+		}, "minimization")
+	case "toon":
+		// Convert JSON to TOON format
+		return processJSONOutput(res, isDebug, func(jsonData interface{}) ([]byte, error) {
+			return toon.Marshal(jsonData)
+		}, "TOON conversion")
+	default:
+		// Unknown output type, default to raw
+		if isDebug {
+			log.Printf("Warning: unknown output type %q, defaulting to raw", output)
+		}
+		return string(res)
+	}
+}
+
+// processJSONOutput is a helper that unmarshals JSON and applies a transformation function
+func processJSONOutput(res []byte, isDebug bool, transformFunc func(interface{}) ([]byte, error), operationName string) string {
+	var jsonData interface{}
+	if err := json.Unmarshal(res, &jsonData); err != nil {
+		// If not valid JSON, fall back to raw output
+		if isDebug {
+			log.Printf("Warning: failed to parse JSON for %s, returning raw: %v", operationName, err)
+		}
+		return string(res)
+	}
+
+	transformed, err := transformFunc(jsonData)
+	if err != nil {
+		// If transformation fails, fall back to raw output
+		if isDebug {
+			log.Printf("Warning: failed to perform %s, returning raw: %v", operationName, err)
+		}
+		return string(res)
+	}
+
+	return string(transformed)
 }
 
 // makeHandler produces a ToolHandler for the given configs
@@ -193,7 +247,9 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig, isDebug bool) server.ToolHand
 			return mcp.NewToolResultErrorFromErr("GraphQL execution failed", err), nil
 		}
 
-		// 4. Return raw JSON
-		return mcp.NewToolResultText(string(res)), nil
+		// 4. Process output based on configuration
+		result := processOutput(res, tcfg.Output, isDebug)
+
+		return mcp.NewToolResultText(result), nil
 	}
 }

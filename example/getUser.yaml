@@ -21,3 +21,4 @@ annotations:
   destructiveHint: false
   idempotentHint: true
   openWorldHint: true
+output: "toon"
