@@ -21,5 +21,4 @@ annotations:
   destructiveHint: false
   idempotentHint: true
   openWorldHint: true
-# Output format: "raw" (default), "json" (minimized), or "toon" (TOON format)
-# output: "raw"
+output: "toon"
