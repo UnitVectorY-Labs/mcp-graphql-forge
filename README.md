@@ -74,6 +74,10 @@ The following attributes can be specified in the file:
   - `destructiveHint`: If true, the tool may perform destructive updates (only meaningful when readOnlyHint is false) (optional, default: true)
   - `idempotentHint`: If true, calling the tool repeatedly with the same arguments has no additional effect (only meaningful when readOnlyHint is false) (optional, default: false)
   - `openWorldHint`: If true, the tool may interact with an "open world" of external entities (optional, default: true)
+- `output`: The output format for the GraphQL response (optional, defaults to "raw")
+  - `raw`: Passes through the server response as-is (default, preserves backward compatibility)
+  - `json`: Returns minimized JSON with unnecessary spacing removed
+  - `toon`: Converts JSON response to TOON format (Token-Oriented Object Notation) for efficient token usage with LLMs
 
 An example configuration would look like:
 
@@ -100,7 +104,64 @@ annotations:
   destructiveHint: false
   idempotentHint: true
   openWorldHint: true
+output: "toon"  # Optional: "raw" (default), "json", or "toon"
 ```
+
+### Output Formats
+
+The `output` configuration parameter allows you to specify how the GraphQL response should be formatted. This is particularly useful when working with LLMs, as different formats can optimize for token efficiency.
+
+#### Available Output Formats
+
+**raw** (default)
+- Passes through the GraphQL server response exactly as received
+- Maintains backward compatibility with existing configurations
+- No transformation or modification is applied
+- Use when you need the original formatting from the server
+
+**json**
+- Returns minimized JSON with all unnecessary whitespace removed
+- Reduces token usage compared to formatted JSON
+- Ideal for reducing payload size while maintaining JSON compatibility
+- Automatically falls back to raw output if the response is not valid JSON
+
+**toon**
+- Converts the JSON response to TOON format (Token-Oriented Object Notation)
+- Can reduce token usage by 30-60% for uniform, tabular data
+- Optimized for LLM consumption with compact, human-readable output
+- Uses the [toon-format/toon-go](https://github.com/toon-format/toon-go) library
+- Automatically falls back to raw output if the response is not valid JSON or conversion fails
+
+#### Example: TOON Format Output
+
+For a GraphQL query returning user data, the different formats would produce:
+
+**raw** (formatted JSON from server):
+```json
+{
+  "data": {
+    "user": {
+      "id": "U_123",
+      "name": "Alice Smith",
+      "url": "https://github.com/alice",
+      "location": "San Francisco, CA"
+    }
+  }
+}
+```
+
+**json** (minimized):
+```json
+{"data":{"user":{"id":"U_123","name":"Alice Smith","url":"https://github.com/alice","location":"San Francisco, CA"}}}
+```
+
+**toon** (compact notation):
+```
+data{user{id,name,url,location}}:
+  U_123,Alice Smith,https://github.com/alice,San Francisco, CA
+```
+
+Note: GraphQL servers typically return responses in JSON format. The output configuration provides flexibility in how this JSON is processed and returned to the MCP client. If a response cannot be parsed as valid JSON, the tool will fall back to raw output with a debug warning (when debug mode is enabled).
 
 
 ### Run in Streamable HTTP Mode

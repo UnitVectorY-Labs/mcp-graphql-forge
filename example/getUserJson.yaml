@@ -1,6 +1,6 @@
-# getUser.yaml
-name: "getUser"
-description: "Fetch basic information about a user by `login`, including their name, URL, and location."
+# getUserJson.yaml - Example with minimized JSON output format
+name: "getUserJson"
+description: "Fetch basic information about a user by `login`, returning minimized JSON without unnecessary spacing."
 query: |
   query ($login: String!) {
     user(login: $login) {
@@ -16,10 +16,9 @@ inputs:
     description: "The user `login` that uniquely identifies their account."
     required: true
 annotations:
-  title: "Get User Information"
+  title: "Get User Information (Minimized JSON)"
   readOnlyHint: true
   destructiveHint: false
   idempotentHint: true
   openWorldHint: true
-# Output format: "raw" (default), "json" (minimized), or "toon" (TOON format)
-# output: "raw"
+output: "json"

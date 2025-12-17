@@ -43,6 +43,7 @@ type ToolConfig struct {
 		Required    bool   `yaml:"required"`
 	} `yaml:"inputs"`
 	Annotations ToolAnnotations `yaml:"annotations,omitempty"`
+	Output      string          `yaml:"output,omitempty"` // "raw" (default), "json", or "toon"
 }
 
 // ToolAnnotations defines the annotations for a tool

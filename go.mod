@@ -4,6 +4,7 @@ go 1.25.5 // GOVERSION
 
 require (
 	github.com/mark3labs/mcp-go v0.43.2
+	github.com/toon-format/toon-go v0.0.0-20251202084852-7ca0e27c4e8c
 	gopkg.in/yaml.v3 v3.0.1
 )
 

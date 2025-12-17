@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/toon-format/toon-go"
 )
 
 // CtxAuthKey is used as a key for storing auth tokens in context
@@ -193,7 +195,67 @@ func makeHandler(cfg ForgeConfig, tcfg ToolConfig, isDebug bool) server.ToolHand
 			return mcp.NewToolResultErrorFromErr("GraphQL execution failed", err), nil
 		}
 
-		// 4. Return raw JSON
-		return mcp.NewToolResultText(string(res)), nil
+		// 4. Process output based on configuration
+		output := tcfg.Output
+		if output == "" {
+			output = "raw" // default to raw for backwards compatibility
+		}
+
+		var result string
+		switch output {
+		case "raw":
+			// Pass through the server response as-is
+			result = string(res)
+		case "json":
+			// Minimize JSON by removing unnecessary spacing
+			var jsonData interface{}
+			if err := json.Unmarshal(res, &jsonData); err != nil {
+				// If not valid JSON, fall back to raw output
+				if isDebug {
+					log.Printf("Warning: failed to parse JSON for minimization, returning raw: %v", err)
+				}
+				result = string(res)
+			} else {
+				minimized, err := json.Marshal(jsonData)
+				if err != nil {
+					// If minimization fails, fall back to raw output
+					if isDebug {
+						log.Printf("Warning: failed to minimize JSON, returning raw: %v", err)
+					}
+					result = string(res)
+				} else {
+					result = string(minimized)
+				}
+			}
+		case "toon":
+			// Convert JSON to TOON format
+			var jsonData interface{}
+			if err := json.Unmarshal(res, &jsonData); err != nil {
+				// If not valid JSON, fall back to raw output
+				if isDebug {
+					log.Printf("Warning: failed to parse JSON for TOON conversion, returning raw: %v", err)
+				}
+				result = string(res)
+			} else {
+				toonOutput, err := toon.Marshal(jsonData)
+				if err != nil {
+					// If TOON conversion fails, fall back to raw output
+					if isDebug {
+						log.Printf("Warning: failed to convert to TOON format, returning raw: %v", err)
+					}
+					result = string(res)
+				} else {
+					result = string(toonOutput)
+				}
+			}
+		default:
+			// Unknown output type, default to raw
+			if isDebug {
+				log.Printf("Warning: unknown output type %q, defaulting to raw", output)
+			}
+			result = string(res)
+		}
+
+		return mcp.NewToolResultText(result), nil
 	}
 }
