@@ -1,6 +1,6 @@
 # .github/workflows/release.yaml
-
 name: Build and Release Go App
+
 on:
   release:
     types: [created]

@@ -1,0 +1,11 @@
+name: mcp-graphql-forge
+default_branch: main
+config:
+  description: "A lightweight, configuration-driven MCP server that exposes curated GraphQL queries as modular tools, enabling intentional API interactions from your agents."
+  license: MIT
+  language: go
+  release: release-go
+  justfile: true
+  codecov: true
+  docs:
+    enabled: false
