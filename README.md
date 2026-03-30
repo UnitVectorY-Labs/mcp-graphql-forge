@@ -150,3 +150,8 @@ If you do not specify `token_command` in the configuration, the "Authorization" 
 
 - Each instance of `mcp-graphql-forge` can only be used with a single GraphQL server at a single URL.
 - The GraphQL queries are all exposed as Tools and not as Resources, even if they are not mutations.
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/unitvectory-labs-mcp-graphql-forge).
+
