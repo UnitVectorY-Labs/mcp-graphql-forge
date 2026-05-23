@@ -6,13 +6,25 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strings"
 
 	"github.com/UnitVectorY-Labs/mcp-graphql-forge/internal/forge"
 )
 
 var Version = "dev" // This will be set by the build systems to the release version
+
+var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+`)
+
+func versionString() string {
+	version := Version
+	if semverRe.MatchString(version) && !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
+	return fmt.Sprintf("mcp-graphql-forge version %s (%s, %s/%s)", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
 
 func main() {
 	// Set the build version from the build info if not set by the build system
@@ -51,7 +63,7 @@ func main() {
 	}
 
 	// Create and configure MCP server
-	versionWithRuntime := fmt.Sprintf("%s (%s, %s/%s)", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	versionWithRuntime := versionString()
 	srv, err := forge.CreateMCPServer(appConfig, versionWithRuntime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating MCP server: %v\n", err)
