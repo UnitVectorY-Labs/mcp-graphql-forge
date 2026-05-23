@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"runtime/debug"
 
 	"github.com/UnitVectorY-Labs/mcp-graphql-forge/internal/forge"
@@ -50,7 +51,8 @@ func main() {
 	}
 
 	// Create and configure MCP server
-	srv, err := forge.CreateMCPServer(appConfig, Version)
+	versionWithRuntime := fmt.Sprintf("%s (%s, %s/%s)", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	srv, err := forge.CreateMCPServer(appConfig, versionWithRuntime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating MCP server: %v\n", err)
 		os.Exit(1)
