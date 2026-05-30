@@ -110,6 +110,6 @@ func LoadAppConfig(forgeConfigFlag string, debugEnabled bool) (*AppConfig, error
 
 // GraphqlRequest is the POST payload for GraphQL
 type GraphqlRequest struct {
-	Query     string                 `json:"query"`
-	Variables map[string]interface{} `json:"variables,omitempty"`
+	Query     string         `json:"query"`
+	Variables map[string]any `json:"variables,omitempty"`
 }

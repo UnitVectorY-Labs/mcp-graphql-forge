@@ -11,7 +11,7 @@ import (
 )
 
 // ExecuteGraphQL posts a query+vars to url with Bearer token, returning raw JSON
-func ExecuteGraphQL(url, query string, vars map[string]interface{}, token string, isDebug bool) ([]byte, error) {
+func ExecuteGraphQL(url, query string, vars map[string]any, token string, isDebug bool) ([]byte, error) {
 	payload := GraphqlRequest{Query: query, Variables: vars}
 	body, err := json.Marshal(payload)
 	if err != nil {
