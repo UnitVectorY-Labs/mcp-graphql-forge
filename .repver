@@ -8,8 +8,8 @@ commands:
    targets:
    - path: "go.mod"
      pattern: "^go (?P<version>.*) // GOVERSION$"
-     transform: "{{major}}.{{minor}}"
-   - path: ".github/workflows/build-go.yml"
+     transform: "{{major}}.{{minor}}.{{patch}}"
+    - path: ".github/workflows/build-go.yml"
      pattern: "^          go-version: '(?P<version>.*)' # GOVERSION$"
    git:
      create_branch: true
