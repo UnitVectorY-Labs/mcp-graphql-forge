@@ -9,7 +9,7 @@ commands:
    - path: "go.mod"
      pattern: "^go (?P<version>.*) // GOVERSION$"
      transform: "{{major}}.{{minor}}.0"
-    - path: ".github/workflows/build-go.yml"
+   - path: ".github/workflows/build-go.yml"
      pattern: "^          go-version: '(?P<version>.*)' # GOVERSION$"
    git:
      create_branch: true
