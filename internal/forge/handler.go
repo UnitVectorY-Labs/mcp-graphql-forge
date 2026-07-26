@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/toon-format/toon-go"
 )
 
@@ -22,11 +22,12 @@ import (
 type CtxAuthKey struct{}
 
 // CreateMCPServer creates and configures an MCP server with all tools registered
-func CreateMCPServer(appConfig *AppConfig, version string) (*server.MCPServer, error) {
-	// Init MCP server
-	srv := server.NewMCPServer(appConfig.Config.Name, version)
+func CreateMCPServer(appConfig *AppConfig, version string) (*mcp.Server, error) {
+	srv := mcp.NewServer(&mcp.Implementation{
+		Name:    appConfig.Config.Name,
+		Version: version,
+	}, nil)
 
-	// Discover & register tools
 	if err := RegisterTools(srv, appConfig.Config, appConfig.ConfigDir, appConfig.IsDebug); err != nil {
 		return nil, fmt.Errorf("registering tools: %w", err)
 	}
@@ -35,8 +36,7 @@ func CreateMCPServer(appConfig *AppConfig, version string) (*server.MCPServer, e
 }
 
 // RegisterTools discovers and registers all tools from the config directory
-func RegisterTools(srv *server.MCPServer, cfg *ForgeConfig, configDir string, isDebug bool) error {
-	// Discover & register tools
+func RegisterTools(srv *mcp.Server, cfg *ForgeConfig, configDir string, isDebug bool) error {
 	files, err := filepath.Glob(filepath.Join(configDir, "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("error discovering tools: %w", err)
@@ -53,49 +53,180 @@ func RegisterTools(srv *server.MCPServer, cfg *ForgeConfig, configDir string, is
 			continue
 		}
 
-		opts := []mcp.ToolOption{
-			mcp.WithDescription(tcfg.Description),
-		}
-
-		// Add annotations if specified
-		if tcfg.Annotations.Title != "" {
-			opts = append(opts, mcp.WithTitleAnnotation(tcfg.Annotations.Title))
-		}
-		if tcfg.Annotations.ReadOnlyHint != nil {
-			opts = append(opts, mcp.WithReadOnlyHintAnnotation(*tcfg.Annotations.ReadOnlyHint))
-		}
-		if tcfg.Annotations.DestructiveHint != nil {
-			opts = append(opts, mcp.WithDestructiveHintAnnotation(*tcfg.Annotations.DestructiveHint))
-		}
-		if tcfg.Annotations.IdempotentHint != nil {
-			opts = append(opts, mcp.WithIdempotentHintAnnotation(*tcfg.Annotations.IdempotentHint))
-		}
-		if tcfg.Annotations.OpenWorldHint != nil {
-			opts = append(opts, mcp.WithOpenWorldHintAnnotation(*tcfg.Annotations.OpenWorldHint))
-		}
-
 		valid := true
+		properties := make(map[string]*jsonschema.Schema)
+		var required []string
+
 		for _, inp := range tcfg.Inputs {
-			pOpts := []mcp.PropertyOption{mcp.Description(inp.Description)}
-			if inp.Required {
-				pOpts = append(pOpts, mcp.Required())
-			}
+			var propSchema *jsonschema.Schema
 			switch inp.Type {
 			case "string":
-				opts = append(opts, mcp.WithString(inp.Name, pOpts...))
+				propSchema = &jsonschema.Schema{
+					Type:        "string",
+					Description: inp.Description,
+				}
 			case "number":
-				opts = append(opts, mcp.WithNumber(inp.Name, pOpts...))
+				propSchema = &jsonschema.Schema{
+					Type:        "number",
+					Description: inp.Description,
+				}
 			default:
 				fmt.Fprintf(os.Stderr, "Warning: unsupported type %q in %s\n", inp.Type, tcfg.Name)
 				valid = false
+				break
+			}
+			if propSchema != nil {
+				properties[inp.Name] = propSchema
+				if inp.Required {
+					required = append(required, inp.Name)
+				}
 			}
 		}
 		if !valid {
 			continue
 		}
 
-		tool := mcp.NewTool(tcfg.Name, opts...)
-		srv.AddTool(tool, makeHandler(*cfg, *tcfg, isDebug))
+		inputSchema := &jsonschema.Schema{
+			Type:       "object",
+			Properties: properties,
+			Required:   required,
+		}
+
+		var annotations *mcp.ToolAnnotations
+		if tcfg.Annotations.Title != "" ||
+			tcfg.Annotations.ReadOnlyHint != nil ||
+			tcfg.Annotations.DestructiveHint != nil ||
+			tcfg.Annotations.IdempotentHint != nil ||
+			tcfg.Annotations.OpenWorldHint != nil {
+			annotations = &mcp.ToolAnnotations{
+				Title: tcfg.Annotations.Title,
+			}
+			if tcfg.Annotations.ReadOnlyHint != nil {
+				annotations.ReadOnlyHint = *tcfg.Annotations.ReadOnlyHint
+			}
+			if tcfg.Annotations.DestructiveHint != nil {
+				annotations.DestructiveHint = tcfg.Annotations.DestructiveHint
+			}
+			if tcfg.Annotations.IdempotentHint != nil {
+				annotations.IdempotentHint = *tcfg.Annotations.IdempotentHint
+			}
+			if tcfg.Annotations.OpenWorldHint != nil {
+				annotations.OpenWorldHint = tcfg.Annotations.OpenWorldHint
+			}
+		}
+
+		tool := &mcp.Tool{
+			Name:        tcfg.Name,
+			Description: tcfg.Description,
+			InputSchema: inputSchema,
+			Annotations: annotations,
+		}
+
+		tc := *tcfg
+		handler := func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			var args map[string]any
+			if len(req.Params.Arguments) > 0 {
+				if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("failed to parse arguments: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+			}
+
+			vars := map[string]any{}
+			for _, inp := range tc.Inputs {
+				val, ok := args[inp.Name]
+				if !ok && inp.Required {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("missing required argument: %s", inp.Name)}},
+						IsError: true,
+					}, nil
+				}
+				vars[inp.Name] = val
+			}
+
+			token := ""
+			if cfg.TokenCommand != "" {
+				var cmd *exec.Cmd
+				if runtime.GOOS == "windows" {
+					cmd = exec.Command("cmd", "/C", cfg.TokenCommand)
+				} else {
+					cmd = exec.Command("sh", "-c", cfg.TokenCommand)
+				}
+
+				var envList []string
+				if cfg.EnvPassthrough {
+					envList = os.Environ()
+				} else {
+					envList = []string{}
+				}
+
+				for key, value := range cfg.Env {
+					prefix := key + "="
+					filtered := envList[:0]
+					for _, e := range envList {
+						if !strings.HasPrefix(e, prefix) {
+							filtered = append(filtered, e)
+						}
+					}
+					envList = append(filtered, fmt.Sprintf("%s=%s", key, value))
+				}
+
+				cmd.Env = envList
+
+				if isDebug {
+					log.Printf("Executing token command: %s", cfg.TokenCommand)
+					if len(cmd.Env) > 0 {
+						log.Printf("Environment variables: %v", cmd.Env)
+					}
+				}
+
+				out, err := cmd.Output()
+				if err != nil {
+					errMsg := "token_command failed"
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						stderr := string(bytes.TrimSpace(exitErr.Stderr))
+						if stderr != "" {
+							errMsg = fmt.Sprintf("%s: %v Stderr: %s", errMsg, exitErr, stderr)
+						} else {
+							errMsg = fmt.Sprintf("%s: %v", errMsg, exitErr)
+						}
+					}
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: errMsg}},
+						IsError: true,
+					}, nil
+				}
+				token = "Bearer " + string(bytes.TrimSpace(out))
+
+				if isDebug {
+					log.Printf("Obtained token (sha256): %x\n", sha256.Sum256([]byte(token)))
+				}
+			} else {
+				token, _ = ctx.Value(CtxAuthKey{}).(string)
+
+				if isDebug {
+					log.Printf("Pass through token (sha256): %x\n", sha256.Sum256([]byte(token)))
+				}
+			}
+
+			res, err := ExecuteGraphQL(cfg.URL, tc.Query, vars, token, isDebug)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("GraphQL execution failed: %v", err)}},
+					IsError: true,
+				}, nil
+			}
+
+			result := processOutput(res, tc.Output, isDebug)
+
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: result}},
+			}, nil
+		}
+
+		srv.AddTool(tool, handler)
 	}
 
 	return nil
@@ -104,25 +235,21 @@ func RegisterTools(srv *server.MCPServer, cfg *ForgeConfig, configDir string, is
 // processOutput converts the GraphQL response based on the output format
 func processOutput(res []byte, output string, isDebug bool) string {
 	if output == "" {
-		output = "raw" // default to raw for backwards compatibility
+		output = "raw"
 	}
 
 	switch output {
 	case "raw":
-		// Pass through the server response as-is
 		return string(res)
 	case "json":
-		// Minimize JSON by removing unnecessary spacing
 		return processJSONOutput(res, isDebug, func(jsonData any) ([]byte, error) {
 			return json.Marshal(jsonData)
 		}, "minimization")
 	case "toon":
-		// Convert JSON to TOON format
 		return processJSONOutput(res, isDebug, func(jsonData any) ([]byte, error) {
 			return toon.Marshal(jsonData)
 		}, "TOON conversion")
 	default:
-		// Unknown output type, default to raw
 		if isDebug {
 			log.Printf("Warning: unknown output type %q, defaulting to raw", output)
 		}
@@ -134,7 +261,6 @@ func processOutput(res []byte, output string, isDebug bool) string {
 func processJSONOutput(res []byte, isDebug bool, transformFunc func(any) ([]byte, error), operationName string) string {
 	var jsonData any
 	if err := json.Unmarshal(res, &jsonData); err != nil {
-		// If not valid JSON, fall back to raw output
 		if isDebug {
 			log.Printf("Warning: failed to parse JSON for %s, returning raw: %v", operationName, err)
 		}
@@ -143,7 +269,6 @@ func processJSONOutput(res []byte, isDebug bool, transformFunc func(any) ([]byte
 
 	transformed, err := transformFunc(jsonData)
 	if err != nil {
-		// If transformation fails, fall back to raw output
 		if isDebug {
 			log.Printf("Warning: failed to perform %s, returning raw: %v", operationName, err)
 		}
@@ -151,105 +276,4 @@ func processJSONOutput(res []byte, isDebug bool, transformFunc func(any) ([]byte
 	}
 
 	return string(transformed)
-}
-
-// makeHandler produces a ToolHandler for the given configs
-func makeHandler(cfg ForgeConfig, tcfg ToolConfig, isDebug bool) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// 1. Gather variables
-		vars := map[string]any{}
-		args := req.GetArguments()
-		for _, inp := range tcfg.Inputs {
-			val, ok := args[inp.Name]
-			if !ok && inp.Required {
-				return mcp.NewToolResultError(fmt.Sprintf("missing required argument: %s", inp.Name)), nil
-			}
-			vars[inp.Name] = val
-		}
-
-		// 2. Get the token
-		token := ""
-		if cfg.TokenCommand != "" {
-			var cmd *exec.Cmd
-			// Use the appropriate shell based on the OS
-			if runtime.GOOS == "windows" {
-				cmd = exec.Command("cmd", "/C", cfg.TokenCommand)
-			} else {
-				// Assume Unix-like shell for macOS, Linux, etc.
-				cmd = exec.Command("sh", "-c", cfg.TokenCommand)
-			}
-
-			// Build merged environment: start with os.Environ() if passthrough, else start empty,
-			// then overlay values from cfg.Env to ensure overrides.
-			var envList []string
-			if cfg.EnvPassthrough {
-				envList = os.Environ()
-			} else {
-				envList = []string{}
-			}
-
-			for key, value := range cfg.Env {
-				// Remove any existing entries for this key
-				prefix := key + "="
-				filtered := envList[:0]
-				for _, e := range envList {
-					if !strings.HasPrefix(e, prefix) {
-						filtered = append(filtered, e)
-					}
-				}
-				envList = append(filtered, fmt.Sprintf("%s=%s", key, value))
-			}
-
-			cmd.Env = envList
-
-			if isDebug {
-				log.Printf("Executing token command: %s", cfg.TokenCommand)
-				if len(cmd.Env) > 0 {
-					log.Printf("Environment variables: %v", cmd.Env)
-				}
-			}
-
-			// Only get a token if the command is specified
-			out, err := cmd.Output()
-			if err != nil {
-				// Include stderr in the error message if available
-				errMsg := "token_command failed"
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					// Combine exit error message and stderr for better context
-					stderr := string(bytes.TrimSpace(exitErr.Stderr))
-					if stderr != "" {
-						errMsg = fmt.Sprintf("%s: %v Stderr: %s", errMsg, exitErr, stderr)
-					} else {
-						errMsg = fmt.Sprintf("%s: %v", errMsg, exitErr)
-					}
-				}
-				// Return nil error for MCP result error
-				return mcp.NewToolResultErrorFromErr(errMsg, err), nil
-			}
-			token = "Bearer " + string(bytes.TrimSpace(out))
-
-			if isDebug {
-				log.Printf("Obtained token (sha256): %x\n", sha256.Sum256([]byte(token)))
-			}
-		} else {
-			// No token command specified, proceed with pass through token
-			token, _ = ctx.Value(CtxAuthKey{}).(string)
-
-			if isDebug {
-				log.Printf("Pass through token (sha256): %x\n", sha256.Sum256([]byte(token)))
-			}
-		}
-
-		// 3. Call GraphQL
-		res, err := ExecuteGraphQL(cfg.URL, tcfg.Query, vars, token, isDebug)
-		if err != nil {
-			// Return error result to MCP instead of terminating
-			return mcp.NewToolResultErrorFromErr("GraphQL execution failed", err), nil
-		}
-
-		// 4. Process output based on configuration
-		result := processOutput(res, tcfg.Output, isDebug)
-
-		return mcp.NewToolResultText(result), nil
-	}
 }
