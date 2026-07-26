@@ -28,9 +28,16 @@ func serveHTTP(srv *mcp.Server, httpAddr string, isDebug bool) error {
 		fmt.Printf("Starting MCP server using Streamable HTTP transport on %s\n", httpAddr)
 	}
 
-	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return srv
 	}, nil)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			r = r.WithContext(context.WithValue(r.Context(), CtxAuthKey{}, auth))
+		}
+		mcpHandler.ServeHTTP(w, r)
+	})
 
 	if isDebug {
 		fmt.Printf("Streamable HTTP Endpoint: http://localhost:%s/mcp\n", httpAddr)
