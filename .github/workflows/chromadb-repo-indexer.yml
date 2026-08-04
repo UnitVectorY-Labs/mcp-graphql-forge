@@ -20,7 +20,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+        with:
+          persist-credentials: false
       - name: Index repository
         id: chromadb-index
         uses: UnitVectorY-Labs/chromadb-repo-indexer@bbdf18095437282e7a3000e89ffa1a85583b7e7f # v1.1.0
