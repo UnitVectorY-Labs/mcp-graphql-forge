@@ -30,7 +30,7 @@ func serveHTTP(srv *mcp.Server, httpAddr string, isDebug bool) error {
 
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return srv
-	}, nil)
+	}, &mcp.StreamableHTTPOptions{Stateless: true})
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if auth := r.Header.Get("Authorization"); auth != "" {
