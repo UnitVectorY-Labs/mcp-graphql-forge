@@ -1,35 +1,31 @@
 name: Semgrep
 
 on:
-  pull_request: {}
-  workflow_dispatch: {}
+  pull_request:
   push:
-    branches:
-      - main
-      - master
-    paths:
-      - .github/workflows/semgrep.yml
-  schedule:
-    - cron: '20 17 * * *'
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   semgrep:
-    name: semgrep/ci
     runs-on: ubuntu-latest
     container:
-      image: semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
+      image: semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b # v1.172.0
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - run: semgrep scan --config auto --sarif --output semgrep.sarif
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      - name: Scan
+        run: semgrep scan --config auto --sarif --output semgrep.sarif
 
-      - name: Upload Semgrep results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload findings to GitHub
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           sarif_file: semgrep.sarif
+          category: semgrep
