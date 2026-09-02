@@ -1,6 +1,6 @@
 module github.com/UnitVectorY-Labs/mcp-graphql-forge
 
-go 1.26.0 // GOVERSION
+go 1.27.0 // GOVERSION
 
 require (
 	github.com/google/jsonschema-go v0.4.3
