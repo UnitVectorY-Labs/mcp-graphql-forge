@@ -2,7 +2,8 @@ package forge
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"log"
@@ -53,9 +54,9 @@ func ExecuteGraphQL(url, query string, vars map[string]any, token string, isDebu
 		log.Println("--- GraphQL Response ---")
 		log.Printf("Status Code: %d\n", resp.StatusCode)
 		// Attempt to pretty-print JSON response body if possible
-		var pretty bytes.Buffer
-		if json.Indent(&pretty, respBody, "", "  ") == nil {
-			log.Printf("Body:\n%s\n", pretty.String())
+		pretty := jsontext.Value(bytes.Clone(respBody))
+		if pretty.Indent(jsontext.AllowDuplicateNames(false), jsontext.AllowInvalidUTF8(false)) == nil {
+			log.Printf("Body:\n%s\n", pretty)
 		} else {
 			// Fallback to printing raw body if not valid JSON
 			log.Printf("Body (raw): %s\n", respBody)
