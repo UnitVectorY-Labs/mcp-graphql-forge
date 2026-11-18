@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       - name: Index repository
         id: chromadb-index
         uses: UnitVectorY-Labs/chromadb-repo-indexer@8ee570e0b30e5252afadb146977b411b8acd3e34 # v1.2.1
